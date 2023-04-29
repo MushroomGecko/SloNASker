@@ -1,6 +1,5 @@
-import sys
 import zipfile
-from flask import Flask, render_template, request, send_file, make_response, session, redirect
+from flask import Flask, render_template, request, send_file, session, redirect
 from werkzeug.utils import secure_filename
 import os
 import json
@@ -14,11 +13,14 @@ app.config["SECRET_KEY"] = os.urandom(random.randrange(4092))
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
-    # if os.path.exists("data.zip"):
-    # os.remove("data.zip")
+    # if os.path.exists("public_data.zip"):
+    # os.remove("public_data.zip")
 
     # Gets name of every file in /files
     fNames = [x.name for x in os.scandir(app.config['UPLOAD_FOLDER'] + "public/")]
+    user = "Nobody"
+    if 'username' in session:
+        user = session['username']
 
     if request.method == "POST":
         uploaded_files = request.files.getlist('file_upload')
@@ -38,32 +40,42 @@ def index():
         if len(downloaded_files) > 1:  # If user tries to download more than one file
             with zipfile.ZipFile('public' + '_' + 'data.zip', 'w') as f:
                 for file in downloaded_files:
-                    f.write(app.config['UPLOAD_FOLDER'] + "public/" + file)
+                    item = app.config['UPLOAD_FOLDER'] + "public/" + file
+                    if not os.path.islink(item):
+                        f.write(item)
+                    else:
+                        print("Will not include", item, "because it is a symlink file")
             return send_file('public' + '_' + 'data.zip', as_attachment=True)
+
         elif len(downloaded_files) == 1:  # If user tries to download exactly 1 file
-            return send_file(app.config['UPLOAD_FOLDER'] + "public/" + downloaded_files[0], as_attachment=True)
-    return render_template('index.html', fNames=fNames)
+            item = app.config['UPLOAD_FOLDER'] + "public/" + downloaded_files[0]
+            if not os.path.islink(item):
+                return send_file(item, as_attachment=True)
+            else:
+                print("Will not download", item, "because it is a symlink file")
+    return render_template('index.html', fNames=fNames, user=user)
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup_page():
     if request.method == "POST":
         # Get user inputs
-        username = str(request.form.get('username')).lower()
-        password = str(request.form.get('password'))
+        username = secure_filename(str(request.form.get('username')).lower())
+        password = secure_filename(str(request.form.get('password')))
 
+        # Checks username and passwords for issues
         fNames = [x.name for x in os.scandir(app.config['UPLOAD_FOLDER'])]
-        if username in fNames:
+        if username in fNames or username == '':
             print("Duplicate name")
             return render_template('signup.html')
-        if len(password) > 64:
-            print("Password too long")
+        if len(password) > 64 or len(password) == 0:
+            print("Password needs to be < 64 and > 0")
             return render_template('signup.html')
         else:
             print("Success")
             session["username"] = username
             os.mkdir(app.config['UPLOAD_FOLDER'] + username)
 
-
+            # Add username and password to Json file
             with open('users.json') as fp:
                 data = json.load(fp)
             salt_file = open("salt.txt", 'r')
@@ -73,7 +85,6 @@ def signup_page():
                 "username": username,
                 "password": hashlib.sha512((password + salt).encode('UTF-8')).hexdigest()
             })
-
             with open('users.json', 'w') as json_file:
                 json.dump(data, json_file, indent=4, separators=(',', ': '))
             return redirect('/personal')
@@ -85,8 +96,8 @@ def personal_page():
     if request.method == "POST":
 
         # Get user inputs
-        username = str(request.form.get('username')).lower()
-        password = str(request.form.get('password'))
+        username = secure_filename(str(request.form.get('username')).lower())
+        password = secure_filename(str(request.form.get('password')))
         uploaded_files = request.files.getlist('file_upload')
         downloaded_files = request.form.getlist('file_download')
 
@@ -119,10 +130,19 @@ def personal_page():
         if len(downloaded_files) > 1:  # If user tries to download more than one file
             with zipfile.ZipFile(session['username'] + '_' + 'data.zip', 'w') as f:
                 for file in downloaded_files:
-                    f.write(app.config['UPLOAD_FOLDER'] + session['username'] + "/" + file)
+                    item = app.config['UPLOAD_FOLDER'] + session['username'] + "/" + file
+                    if not os.path.islink(item):
+                        f.write(item)
+                    else:
+                        print("Will not download", item, "because it is a symlink file")
             return send_file(session['username'] + '_' + "data.zip", as_attachment=True)
+
         elif len(downloaded_files) == 1:  # If user tries to download exactly 1 file
-            return send_file(app.config['UPLOAD_FOLDER'] + session['username'] + "/" + downloaded_files[0], as_attachment=True)
+            item = app.config['UPLOAD_FOLDER'] + session['username'] + "/" + downloaded_files[0]
+            if not os.path.islink(item):
+                return send_file(item, as_attachment=True)
+            else:
+                print("Will not download", item, "because it is a symlink file")
 
     # If user is not logged in
     if 'username' not in session:
