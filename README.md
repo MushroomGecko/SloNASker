@@ -13,4 +13,4 @@ Future Plans:
 >Subdirectories\
 >File preview\
 >A UI that isn't just black text on a white background\
->Security updates\
+>Security updates (including thread management via mutexes)\
