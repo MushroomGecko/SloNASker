@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{user}}</title>
+</head>
+<body>
+
+    <center>
+        <h4>
+            <table>
+                <tr>
+                    <td>
+                        <a href="/">Home</a>
+                    </td>
+                </tr>
+            </table>
+        </h4>
+        <h1>
+            Upload Files
+        </h1>
+        <form method="post" action="/personal" enctype="multipart/form-data">
+            <input type ="file" value="File" name="file_upload" multiple />
+            <input type="submit" value="Upload" name="upload_button" />
+        </form>
+        <h3>
+            NOTE: If you do not see your uploaded file below, wait a few seconds and reload the page.
+        </h3>
+
+        <br/><br/><br/>
+
+        <h1>
+            Download Files
+        </h1>
+        <form method="post" action="/personal" enctype="multipart/form-data">
+            <table>
+                {%for i in fNames%}
+                    <tr>
+                        <td>
+                            <div align="left">
+                                <input type="checkbox" value={{i}} name="file_download" multiple/> {{i}} </br>
+                            </div>
+                        </td>
+                    </tr>
+                {%endfor%}
+            </table>
+            <input type="submit" value="Download" name="download_button" />
+        </form>
+    </center>
+</body>
+</html>
